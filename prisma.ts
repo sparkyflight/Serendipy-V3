@@ -41,7 +41,6 @@ class Users {
 			include: {
 				posts: true,
 				applications: false,
-				fcm_keys: false,
 				followers: {
 					include: {
 						user: false,
@@ -72,7 +71,6 @@ class Users {
 			include: {
 				posts: true,
 				applications: false,
-				fcm_keys: false,
 				followers: {
 					include: {
 						user: false,
@@ -141,12 +139,6 @@ class Users {
 			});
 
 			await prisma.posts.deleteMany({
-				where: {
-					userid: id,
-				},
-			});
-
-			await prisma.fcm_keys.deleteMany({
 				where: {
 					userid: id,
 				},

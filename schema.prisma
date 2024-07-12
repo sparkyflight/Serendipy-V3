@@ -57,15 +57,6 @@ model plugins {
   jsonData Json?
 }
 
-model fcm_keys {
-  id     String @id @unique @default(uuid())
-  userid String @db.VarChar(255)
-  user   users  @relation(fields: [userid], references: [userid])
-
-  name String
-  key  String
-}
-
 model comments {
   creatorid String @db.VarChar(255)
   user      users  @relation(fields: [creatorid], references: [userid])
@@ -139,7 +130,6 @@ model users {
   applications applications[]
   posts        posts[]
   comments     comments[]
-  fcm_keys     fcm_keys[]
 }
 
 enum State {
