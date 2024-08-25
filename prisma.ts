@@ -346,8 +346,7 @@ class Posts {
 			},
 		});
 
-        //@ts-expect-error
-		return docs.filter((p) => p.user.state != "BANNED" || p.user.state != "PRIVATE");
+		return docs.filter((p) => p.user.state != "BANNED" || "PRIVATE");
 	}
 
 	static async updatePost(id: string, data: any) {
@@ -385,8 +384,7 @@ class Posts {
 			},
 		});
         
-        //@ts-expect-error
-		return docs.filter((p) => p.user.state != "BANNED" || p.user.state != "PRIVATE");
+		return docs.filter((p) => p.user.state != "BANNED" || "PRIVATE");
 	}
 
 	static async delete(PostID: string) {
@@ -435,8 +433,7 @@ class Posts {
                 }
             });
 
-            //@ts-expect-error
-			if (user.state != "VOTE_BANNED" || user.state != "BANNED") await prisma.upvotes.create({
+			if (user.state != "VOTE_BANNED" || "BANNED") await prisma.upvotes.create({
 				data: {
 					postid: PostID,
 					userid: UserID,
@@ -458,8 +455,7 @@ class Posts {
                 }
             });
 
-            //@ts-expect-error
-			if (user.state != "VOTE_BANNED" || user.state != "BANNED") await prisma.downvotes.create({
+			if (user.state != "VOTE_BANNED" || "BANNED") await prisma.downvotes.create({
 				data: {
 					postid: PostID,
 					userid: UserID,
