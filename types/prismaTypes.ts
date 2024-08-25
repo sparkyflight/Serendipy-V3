@@ -50,14 +50,6 @@ export interface plugins {
 	jsonData?: any;
 }
 
-export interface fcm_keys {
-	id: string;
-	userid: string;
-	user: users;
-	name: string;
-	key: string;
-}
-
 export interface comments {
 	creatorid: string;
 	user: users;
@@ -119,5 +111,4 @@ export interface users {
 	applications: applications[];
 	posts: posts[];
 	comments: comments[];
-	fcm_keys: fcm_keys[];
 }

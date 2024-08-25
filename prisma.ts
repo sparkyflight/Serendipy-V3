@@ -41,7 +41,6 @@ class Users {
 			include: {
 				posts: true,
 				applications: false,
-				fcm_keys: false,
 				followers: {
 					include: {
 						user: false,
@@ -72,7 +71,6 @@ class Users {
 			include: {
 				posts: true,
 				applications: false,
-				fcm_keys: false,
 				followers: {
 					include: {
 						user: false,
@@ -141,12 +139,6 @@ class Users {
 			});
 
 			await prisma.posts.deleteMany({
-				where: {
-					userid: id,
-				},
-			});
-
-			await prisma.fcm_keys.deleteMany({
 				where: {
 					userid: id,
 				},
@@ -354,7 +346,8 @@ class Posts {
 			},
 		});
 
-		return docs.filter((p) => p.user.state != "BANNED");
+        //@ts-expect-error
+		return docs.filter((p) => p.user.state != "BANNED" || p.user.state != "PRIVATE");
 	}
 
 	static async updatePost(id: string, data: any) {
@@ -391,8 +384,9 @@ class Posts {
 				},
 			},
 		});
-
-		return docs.filter((p) => p.user.state != "BANNED");
+        
+        //@ts-expect-error
+		return docs.filter((p) => p.user.state != "BANNED" || p.user.state != "PRIVATE");
 	}
 
 	static async delete(PostID: string) {
@@ -435,12 +429,20 @@ class Posts {
 
 	static async upvote(PostID: string, UserID: string) {
 		try {
-			await prisma.upvotes.create({
+            const user = await prisma.users.findUnique({
+                where: {
+                    userid: UserID,
+                }
+            });
+
+            //@ts-expect-error
+			if (user.state != "VOTE_BANNED" || user.state != "BANNED") await prisma.upvotes.create({
 				data: {
 					postid: PostID,
 					userid: UserID,
 				},
 			});
+            else throw new Error("User cannot vote for posts. Reason: Punishment");
 
 			return true;
 		} catch (err) {
@@ -450,13 +452,21 @@ class Posts {
 
 	static async downvote(PostID: string, UserID: string) {
 		try {
-			await prisma.downvotes.create({
+			const user = await prisma.users.findUnique({
+                where: {
+                    userid: UserID,
+                }
+            });
+
+            //@ts-expect-error
+			if (user.state != "VOTE_BANNED" || user.state != "BANNED") await prisma.downvotes.create({
 				data: {
 					postid: PostID,
 					userid: UserID,
 				},
 			});
-
+            else throw new Error("User cannot vote for posts. Reason: Punishment");
+            
 			return true;
 		} catch (err) {
 			return err;
@@ -470,7 +480,13 @@ class Posts {
 		Image: string
 	) {
 		try {
-			await prisma.comments.create({
+			const user = await prisma.users.findUnique({
+                where: {
+                    userid: UserID,
+                }
+            });
+
+			if (user.state != "BANNED") await prisma.comments.create({
 				data: {
 					postid: PostID,
 					commentid: crypto.randomUUID().toString(),
@@ -479,6 +495,7 @@ class Posts {
 					image: Image,
 				},
 			});
+            else throw new Error("User cannot comment on posts. Reason: Punishment");
 
 			return true;
 		} catch (err) {
