@@ -1,510 +1,392 @@
-import { PrismaClient } from "@prisma/client";
+import { applications, partners, Prisma, PrismaClient } from "@prisma/client";
 import crypto from "crypto";
 
 const prisma = new PrismaClient();
 
 // Users
 class Users {
-	static async createUser(
-		name: string,
-		userid: string,
-		usertag: string,
-		bio: string,
-		avatar: string
-	) {
+	// Create a new user
+	static async createUser(data: {
+		name: string;
+		userid: string;
+		usertag: string;
+		bio: string;
+		avatar: string;
+	}): Promise<boolean | Error> {
 		try {
-			await prisma.users.create({
+			await prisma.users.create({ data });
+			return true;
+		} catch (error) {
+			return error as Error;
+		}
+	}
+
+	// Get a single user with specific includes
+	static async get(where: Prisma.usersWhereUniqueInput) {
+		try {
+			const user = await prisma.users.findUnique({
+				where,
+				include: {
+					posts: true,
+					applications: false,
+					followers: {
+						include: {
+							user: false,
+							target: false,
+						},
+					},
+					following: {
+						include: {
+							user: false,
+							target: false,
+						},
+					},
+				},
+			});
+
+			return user ?? null;
+		} catch (error) {
+			return null;
+		}
+	}
+
+	// Find multiple users
+	static async find(where: Record<string, any>) {
+		return await prisma.users.findMany({
+			where: {
+				...where,
+				state: {
+					not: "BANNED",
+				},
+			},
+			include: {
+				posts: true,
+				applications: false,
+				followers: {
+					include: {
+						user: false,
+						target: false,
+					},
+				},
+				following: {
+					include: {
+						user: false,
+						target: false,
+					},
+				},
+			},
+		});
+	}
+
+	// Update user by userid
+	static async updateUser(
+		userid: string,
+		data: Prisma.usersUpdateInput
+	): Promise<boolean | Error> {
+		try {
+			await prisma.users.update({
+				where: { userid },
+				data,
+			});
+			return true;
+		} catch (error) {
+			return error as Error;
+		}
+	}
+
+	// Delete a user and associated data
+	static async delete(userid: string): Promise<boolean | Error> {
+		try {
+			const posts = await prisma.posts.findMany({ where: { userid } });
+
+			await Promise.all([
+				prisma.applications.deleteMany({
+					where: { creatorid: userid },
+				}),
+				prisma.comments.deleteMany({ where: { creatorid: userid } }),
+				prisma.upvotes.deleteMany({ where: { userid } }),
+				prisma.downvotes.deleteMany({ where: { userid } }),
+				prisma.following.deleteMany({ where: { userid } }),
+				prisma.following.deleteMany({ where: { targetid: userid } }),
+				...posts.map((post) =>
+					prisma.plugins.deleteMany({
+						where: { postid: post.postid },
+					})
+				),
+				prisma.posts.deleteMany({ where: { userid } }),
+			]);
+
+			await prisma.users.delete({ where: { userid } });
+
+			return true;
+		} catch (error) {
+			return error as Error;
+		}
+	}
+
+	// Follow another user
+	static async follow(
+		userid: string,
+		targetid: string
+	): Promise<boolean | Error> {
+		if (userid === targetid) return false;
+
+		try {
+			const [user, target] = await Promise.all([
+				prisma.users.findUnique({ where: { userid } }),
+				prisma.users.findUnique({ where: { userid: targetid } }),
+			]);
+
+			if (!user || !target) return false;
+
+			await prisma.following.create({
 				data: {
-					name: name,
-					userid: userid,
-					usertag: usertag,
-					bio: bio,
-					avatar: avatar,
-					badges: [],
+					userid,
+					targetid,
 				},
 			});
 
 			return true;
 		} catch (error) {
-			return error;
+			return error as Error;
 		}
 	}
 
-	static async get(data: any) {
-		const doc = await prisma.users.findUnique({
-			where: {
-				...data,
-				state: {
-					not: "BANNED",
-				},
-			},
-			include: {
-				posts: true,
-				applications: false,
-				followers: {
-					include: {
-						user: false,
-						target: false,
-					},
-				},
-				following: {
-					include: {
-						user: false,
-						target: false,
-					},
-				},
-			},
-		});
+	// Unfollow a user
+	static async unfollow(
+		userid: string,
+		targetid: string
+	): Promise<boolean | Error> {
+		if (userid === targetid) return false;
 
-		if (!doc) return null;
-		else return doc;
-	}
-
-	static async find(data: any) {
-		const docs = await prisma.users.findMany({
-			where: {
-				...data,
-				state: {
-					not: "BANNED",
-				},
-			},
-			include: {
-				posts: true,
-				applications: false,
-				followers: {
-					include: {
-						user: false,
-						target: false,
-					},
-				},
-				following: {
-					include: {
-						user: false,
-						target: false,
-					},
-				},
-			},
-		});
-
-		return docs;
-	}
-
-	static async updateUser(id: string, data: object) {
 		try {
-			await prisma.users.update({
-				where: {
-					userid: id,
-				},
-				data: data,
-			});
-
-			return true;
-		} catch (err) {
-			return err;
-		}
-	}
-
-	static async delete(id: string) {
-		try {
-			await prisma.applications.deleteMany({
-				where: {
-					creatorid: id,
-				},
-			});
-
-			await prisma.comments.deleteMany({
-				where: {
-					creatorid: id,
-				},
-			});
-
-			await prisma.upvotes.deleteMany({
-				where: {
-					userid: id,
-				},
-			});
-
-			await prisma.downvotes.deleteMany({
-				where: {
-					userid: id,
-				},
-			});
-
-			(await prisma.posts.findMany({})).map(async (post) => {
-				await prisma.plugins.deleteMany({
-					where: {
-						postid: post.postid,
-					},
-				});
-			});
-
-			await prisma.posts.deleteMany({
-				where: {
-					userid: id,
-				},
-			});
-
 			await prisma.following.deleteMany({
 				where: {
-					userid: id,
-				},
-			});
-
-			await prisma.following.deleteMany({
-				where: {
-					targetid: id,
-				},
-			});
-
-			await prisma.users.delete({
-				where: {
-					userid: id,
+					userid,
+					targetid,
 				},
 			});
 
 			return true;
-		} catch (err) {
-			return err;
-		}
-	}
-
-	static async follow(UserID: string, Target: string) {
-		try {
-			const user = await prisma.users.findUnique({
-				where: {
-					userid: UserID,
-				},
-			});
-
-			const target = await prisma.users.findUnique({
-				where: {
-					userid: Target,
-				},
-			});
-
-			if (!user || !target) return false;
-			else if (user.userid === target.userid) return false;
-			else {
-				await prisma.following.create({
-					data: {
-						userid: UserID,
-						targetid: Target,
-					},
-				});
-
-				return true;
-			}
-		} catch (err) {
-			return err;
-		}
-	}
-
-	static async unfollow(UserID: string, Target: string) {
-		try {
-			const user = await prisma.users.findUnique({
-				where: {
-					userid: UserID,
-				},
-			});
-
-			const target = await prisma.users.findUnique({
-				where: {
-					userid: Target,
-				},
-			});
-
-			if (!user || !target) return false;
-			else if (user.userid === target.userid) return false;
-			else {
-				await prisma.following.deleteMany({
-					where: {
-						userid: UserID,
-						targetid: Target,
-					},
-				});
-
-				return true;
-			}
-		} catch (err) {
-			return err;
+		} catch (error) {
+			return error as Error;
 		}
 	}
 }
 
 // Posts
 class Posts {
+	// Create a post with plugins
 	static async createPost(
-		userid: string,
-		caption: string,
-		type: number,
-		image: string,
-		plugins: any[]
-	) {
+		data: Prisma.postsCreateInput
+	): Promise<boolean | Error> {
 		try {
-			const postid = crypto.randomUUID();
-
 			await prisma.posts.create({
 				data: {
-					userid: userid,
-					caption: caption,
-					type: type,
-					image: image,
-					postid: postid,
-				},
-			});
-
-			plugins.map(async (p) => {
-				await prisma.plugins.create({
-					data: {
-						postid: postid,
-						type: p.type,
-						href: p.href || null,
-						jsonData: p.jsonData,
+					...data,
+					postid: crypto.randomUUID(),
+					plugins: {
+						create: data.plugins?.create || [],
 					},
-				});
+				},
 			});
 
 			return true;
 		} catch (err) {
-			return err;
+			return err as Error;
 		}
 	}
 
-	static async get(PostID: string) {
-		let post = await prisma.posts.findUnique({
-			where: {
-				postid: PostID,
-			},
+	// Get a single post
+	static async get(postid: string) {
+		const post = await prisma.posts.findUnique({
+			where: { postid },
 			include: {
 				user: true,
-				comments: {
-					include: {
-						user: true,
-					},
-				},
+				comments: { include: { user: true } },
 				plugins: true,
-				upvotes: {
-					include: {
-						post: false,
-					},
-				},
-				downvotes: {
-					include: {
-						post: false,
-					},
-				},
+				upvotes: true,
+				downvotes: true,
 			},
 		});
 
-		if (post.user.state === "BANNED") return null;
-		else if (post) return post;
-		else return null;
+		if (!post || post.user?.state === "BANNED") return null;
+		return post;
 	}
 
-	static async find(data: object) {
-		const docs = await prisma.posts.findMany({
-			where: data,
+	// Find posts with condition
+	static async find(where: object) {
+		const posts = await prisma.posts.findMany({
+			where,
 			include: {
 				user: true,
 				comments: true,
 				plugins: true,
-				upvotes: {
-					include: {
-						post: false,
-					},
-				},
-				downvotes: {
-					include: {
-						post: false,
-					},
-				},
+				upvotes: true,
+				downvotes: true,
 			},
 		});
 
-		return docs.filter((p) => p.user.state != "BANNED");
+		return posts.filter((p) => p.user?.state !== "BANNED");
 	}
 
+	// List all public posts
 	static async listAllPosts() {
-		const docs = await prisma.posts.findMany({
+		const posts = await prisma.posts.findMany({
 			include: {
 				user: true,
 				comments: true,
 				plugins: true,
-				upvotes: {
-					include: {
-						post: false,
-					},
-				},
-				downvotes: {
-					include: {
-						post: false,
-					},
-				},
+				upvotes: true,
+				downvotes: true,
 			},
 			orderBy: {
 				createdat: "desc",
 			},
 		});
 
-		return docs.filter((p) => p.user.state != "BANNED" || "PRIVATE");
+		return posts.filter(
+			(p) => p.user?.state !== "BANNED" && p.user?.state !== "PRIVATE"
+		);
 	}
 
-	static async updatePost(id: string, data: any) {
+	// Update a post
+	static async updatePost(
+		postid: string,
+		data: Partial<{
+			caption: string;
+			type: number;
+			image: string;
+		}>
+	): Promise<boolean | Error> {
 		try {
 			await prisma.posts.update({
-				where: {
-					postid: id,
-				},
-				data: data,
+				where: { postid },
+				data,
 			});
-
 			return true;
 		} catch (err) {
-			return err;
+			return err as Error;
 		}
 	}
 
-	static async getAllUserPosts(UserID: string) {
-		const docs = await prisma.posts.findMany({
-			where: { userid: UserID },
+	// Get all posts from a user
+	static async getAllUserPosts(userid: string) {
+		const posts = await prisma.posts.findMany({
+			where: { userid },
 			include: {
 				user: true,
 				comments: true,
 				plugins: true,
-				upvotes: {
-					include: {
-						post: false,
-					},
-				},
-				downvotes: {
-					include: {
-						post: false,
-					},
-				},
+				upvotes: true,
+				downvotes: true,
 			},
 		});
-        
-		return docs.filter((p) => p.user.state != "BANNED" || "PRIVATE");
+
+		return posts.filter(
+			(p) => p.user?.state !== "BANNED" && p.user?.state !== "PRIVATE"
+		);
 	}
 
-	static async delete(PostID: string) {
+	// Delete a post and all associated data
+	static async delete(postid: string): Promise<boolean | Error> {
 		try {
-			await prisma.comments.deleteMany({
-				where: {
-					postid: PostID,
-				},
-			});
+			await Promise.all([
+				prisma.comments.deleteMany({ where: { postid } }),
+				prisma.plugins.deleteMany({ where: { postid } }),
+				prisma.upvotes.deleteMany({ where: { postid } }),
+				prisma.downvotes.deleteMany({ where: { postid } }),
+			]);
 
-			await prisma.plugins.deleteMany({
-				where: {
-					postid: PostID,
-				},
-			});
-
-			await prisma.upvotes.deleteMany({
-				where: {
-					postid: PostID,
-				},
-			});
-
-			await prisma.downvotes.deleteMany({
-				where: {
-					postid: PostID,
-				},
-			});
-
-			await prisma.posts.delete({
-				where: {
-					postid: PostID,
-				},
-			});
-
+			await prisma.posts.delete({ where: { postid } });
 			return true;
 		} catch (err) {
-			return err;
+			return err as Error;
 		}
 	}
 
-	static async upvote(PostID: string, UserID: string) {
+	// Upvote a post
+	static async upvote(
+		postid: string,
+		userid: string
+	): Promise<boolean | Error> {
 		try {
-            const user = await prisma.users.findUnique({
-                where: {
-                    userid: UserID,
-                }
-            });
+			const user = await prisma.users.findUnique({ where: { userid } });
+			if (!user || ["BANNED", "VOTE_BANNED"].includes(user.state)) {
+				throw new Error(
+					"User cannot vote for posts. Reason: Punishment"
+				);
+			}
 
-			if (user.state != "VOTE_BANNED" || "BANNED") await prisma.upvotes.create({
-				data: {
-					postid: PostID,
-					userid: UserID,
-				},
-			});
-            else throw new Error("User cannot vote for posts. Reason: Punishment");
-
+			await prisma.upvotes.create({ data: { postid, userid } });
 			return true;
 		} catch (err) {
-			return err;
+			return err as Error;
 		}
 	}
 
-	static async downvote(PostID: string, UserID: string) {
+	// Downvote a post
+	static async downvote(
+		postid: string,
+		userid: string
+	): Promise<boolean | Error> {
 		try {
-			const user = await prisma.users.findUnique({
-                where: {
-                    userid: UserID,
-                }
-            });
+			const user = await prisma.users.findUnique({ where: { userid } });
+			if (!user || ["BANNED", "VOTE_BANNED"].includes(user.state)) {
+				throw new Error(
+					"User cannot vote for posts. Reason: Punishment"
+				);
+			}
 
-			if (user.state != "VOTE_BANNED" || "BANNED") await prisma.downvotes.create({
-				data: {
-					postid: PostID,
-					userid: UserID,
-				},
-			});
-            else throw new Error("User cannot vote for posts. Reason: Punishment");
-            
+			await prisma.downvotes.create({ data: { postid, userid } });
 			return true;
 		} catch (err) {
-			return err;
+			return err as Error;
 		}
 	}
 
+	// Comment on a post
 	static async comment(
-		PostID: string,
-		UserID: string,
-		Caption: string,
-		Image: string
-	) {
+		postid: string,
+		userid: string,
+		caption: string,
+		image: string
+	): Promise<boolean | Error> {
 		try {
-			const user = await prisma.users.findUnique({
-                where: {
-                    userid: UserID,
-                }
-            });
+			const user = await prisma.users.findUnique({ where: { userid } });
+			if (!user || user.state === "BANNED") {
+				throw new Error(
+					"User cannot comment on posts. Reason: Punishment"
+				);
+			}
 
-			if (user.state != "BANNED") await prisma.comments.create({
+			await prisma.comments.create({
 				data: {
-					postid: PostID,
-					commentid: crypto.randomUUID().toString(),
-					creatorid: UserID,
-					caption: Caption,
-					image: Image,
+					postid,
+					commentid: crypto.randomUUID(),
+					creatorid: userid,
+					caption,
+					image,
 				},
 			});
-            else throw new Error("User cannot comment on posts. Reason: Punishment");
 
 			return true;
 		} catch (err) {
-			return err;
+			return err as Error;
 		}
 	}
 }
 
 // Developer Applications
 class Applications {
-	static async createApp(creator_id: string, name: string, logo: string) {
+	// Create a new application, returns token string or Error
+	static async createApp(
+		creatorId: string,
+		name: string,
+		logo: string
+	): Promise<string | Error> {
 		try {
-			const token: string = crypto
+			const token = crypto
 				.createHash("sha256")
 				.update(
 					`${crypto.randomUUID()}_${crypto.randomUUID()}`.replace(
@@ -516,10 +398,10 @@ class Applications {
 
 			await prisma.applications.create({
 				data: {
-					creatorid: creator_id,
-					name: name,
-					logo: logo,
-					token: token,
+					creatorid: creatorId,
+					name,
+					logo,
+					token,
 					active: true,
 					permissions: ["global.*"],
 				},
@@ -527,94 +409,148 @@ class Applications {
 
 			return token;
 		} catch (err) {
-			return err;
+			return err as Error;
 		}
 	}
 
-	static async updateApp(token: string, data: any) {
+	// Update an app by token; data is partial applications fields
+	static async updateApp(
+		token: string,
+		data: Prisma.applicationsUpdateInput
+	): Promise<boolean | Error> {
 		try {
 			await prisma.applications.update({
-				data: data,
-				where: {
-					token: token,
-				},
+				where: { token },
+				data,
 			});
 
 			return true;
 		} catch (err) {
-			return err;
+			return err as Error;
 		}
 	}
 
-	static async get(token: string) {
-		const tokenData = await prisma.applications.findUnique({
-			where: {
-				token: token,
-			},
-			include: {
-				owner: true,
-			},
-		});
-
-		if (tokenData) return tokenData;
-		else return null;
-	}
-
-	static async getAllApplications(creatorid: string) {
+	// Get app by token, including owner relation
+	static async get(
+		token: string
+	): Promise<(applications & { owner: any }) | null> {
 		try {
-			const doc = await prisma.applications.findMany({
-				where: {
-					creatorid: creatorid,
-				},
-				include: {
-					owner: true,
-				},
+			const app = await prisma.applications.findUnique({
+				where: { token },
+				include: { owner: true },
 			});
 
-			return doc;
-		} catch (error) {
-			return error;
+			return app ?? null;
+		} catch {
+			return null;
 		}
 	}
 
-	static async delete(data: any) {
+	// Get all applications for a creator id
+	static async getAllApplications(
+		creatorid: string
+	): Promise<(applications & { owner: any })[] | Error> {
+		try {
+			return await prisma.applications.findMany({
+				where: { creatorid },
+				include: { owner: true },
+			});
+		} catch (err) {
+			return err as Error;
+		}
+	}
+
+	// Delete an application by unique key (e.g. token or id)
+	static async delete(
+		where: Prisma.applicationsWhereUniqueInput
+	): Promise<boolean | Error> {
 		try {
 			await prisma.applications.delete({
-				where: data,
+				where,
 			});
-
 			return true;
 		} catch (err) {
-			return err;
+			return err as Error;
 		}
 	}
 }
 
 // Partners
 class Partners {
-	static async get(data: any) {
-		const partner = await prisma.partners.findUnique({
-			where: data,
-			include: {
-				links: true,
-			},
-		});
-
-		if (partner) return partner;
-		else return null;
+	// Create a new partner
+	static async create(
+		data: Prisma.partnersCreateInput
+	): Promise<partners | Error> {
+		try {
+			const newPartner = await prisma.partners.create({
+				data,
+			});
+			return newPartner;
+		} catch (error) {
+			return error as Error;
+		}
 	}
 
-	static async getAllPartners() {
+	// Get a single partner by unique fields (e.g., id)
+	static async get(
+		where: Prisma.partnersWhereUniqueInput
+	): Promise<(partners & { links: any[] }) | null> {
 		try {
-			const doc = await prisma.partners.findMany({
+			const partner = await prisma.partners.findUnique({
+				where,
 				include: {
 					links: true,
 				},
 			});
+			return partner ?? null;
+		} catch {
+			return null;
+		}
+	}
 
-			return doc;
+	// Get all partners
+	static async getAllPartners(): Promise<
+		(partners & { links: any[] })[] | Error
+	> {
+		try {
+			const partnersList = await prisma.partners.findMany({
+				include: {
+					links: true,
+				},
+			});
+			return partnersList;
 		} catch (error) {
-			return error;
+			return error as Error;
+		}
+	}
+
+	// Update a partner by unique identifier
+	static async update(
+		where: Prisma.partnersWhereUniqueInput,
+		data: Prisma.partnersUpdateInput
+	): Promise<partners | Error> {
+		try {
+			const updatedPartner = await prisma.partners.update({
+				where,
+				data,
+			});
+			return updatedPartner;
+		} catch (error) {
+			return error as Error;
+		}
+	}
+
+	// Delete a partner by unique identifier
+	static async delete(
+		where: Prisma.partnersWhereUniqueInput
+	): Promise<boolean | Error> {
+		try {
+			await prisma.partners.delete({
+				where,
+			});
+			return true;
+		} catch (error) {
+			return error as Error;
 		}
 	}
 }
