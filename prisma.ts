@@ -182,13 +182,7 @@ class Posts {
 	): Promise<boolean | Error> {
 		try {
 			await prisma.posts.create({
-				data: {
-					...data,
-					postid: crypto.randomUUID(),
-					plugins: {
-						create: data.plugins?.create || [],
-					},
-				},
+				data,
 			});
 
 			return true;
@@ -253,11 +247,7 @@ class Posts {
 	// Update a post
 	static async updatePost(
 		postid: string,
-		data: Partial<{
-			caption: string;
-			type: number;
-			image: string;
-		}>
+		data: Prisma.postsUpdateInput
 	): Promise<boolean | Error> {
 		try {
 			await prisma.posts.update({

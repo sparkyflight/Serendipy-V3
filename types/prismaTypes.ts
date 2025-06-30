@@ -9,6 +9,21 @@ export enum State {
 	PRIVATE = "PRIVATE",
 }
 
+export enum platform {
+	DISCORD = "DISCORD",
+	TWITTER = "TWITTER",
+	INSTAGRAM = "INSTAGRAM",
+	TIKTOK = "TIKTOK",
+	YOUTUBE = "YOUTUBE",
+	GITHUB = "GITHUB",
+	WEBSITE = "WEBSITE",
+}
+
+export enum badge {
+	STAFF = "STAFF",
+	VERIFIED = "VERIFIED",
+}
+
 export interface partnerLinks {
 	id: string;
 	partnerName: string;
@@ -96,16 +111,29 @@ export interface posts {
 	createdat: Date;
 }
 
+export interface social {
+	id: string;
+	userid: string;
+	user: users;
+	platform: platform;
+	link: string;
+}
+
 export interface users {
 	name?: string;
+	usertag: string;
 	userid: string;
 	discord_id?: string;
-	usertag: string;
 	bio: string;
 	avatar: string;
+	banner: string;
+	socials: social[];
 	followers: following[];
 	following: following[];
-	badges: string[];
+	badges: badge[];
+	specialInterests: string[];
+	pronouns?: string;
+	birthDay?: Date;
 	state: State;
 	staff_perms: string[];
 	applications: applications[];
