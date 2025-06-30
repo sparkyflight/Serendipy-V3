@@ -219,7 +219,7 @@ model users {
   discord_id String? @unique @db.VarChar(255)
   bio        String  @default("None") @db.VarChar(255)
   avatar     String  @default("/logo.png") @db.VarChar(255)
-  banner     String? @db.VarChar(255)
+  banner     String  @default("/banner.png") @db.VarChar(255)
 
   /// Social links.
   socials social[]
@@ -235,7 +235,6 @@ model users {
 
   /// Interests and accessibility info.
   specialInterests String[] @default([])
-  disabilities     String[] @default([])
   pronouns         String?  @db.VarChar(255)
 
   /// Optional birthdate.
