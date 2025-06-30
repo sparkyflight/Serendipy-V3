@@ -7,135 +7,274 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Represents a partner link associated with a specific partner.
 model partnerLinks {
-  id          String   @id @unique @default(uuid())
-  partnerName String
-  partner     partners @relation(fields: [partnerName], references: [name])
-
-  name  String
-  emoji String
-  link  String
-}
-
-model partners {
+  /// Unique identifier for the partner link.
   id String @id @unique @default(uuid())
 
-  name     String @unique
-  logo     String @unique
-  category String
+  /// Name of the partner this link belongs to.
+  partnerName String
 
-  owner      String
-  ownerImage String
-  ownerLink  String?
+  /// Relation to the parent partner model.
+  partner partners @relation(fields: [partnerName], references: [name])
 
-  description      String
-  long_description String
-  links            partnerLinks[]
+  /// Display name for the link.
+  name String
+
+  /// Emoji used to visually represent the link.
+  emoji String
+
+  /// URL of the partner link.
+  link String
 }
 
-model applications {
-  creatorid String @db.VarChar(255)
-  owner     users  @relation(fields: [creatorid], references: [userid])
+/// Represents a partner in the system.
+model partners {
+  /// Unique identifier.
+  id String @id @unique @default(uuid())
 
+  /// Unique name of the partner (used for referencing in relations).
+  name String @unique
+
+  /// Logo image URL.
+  logo String @unique
+
+  /// Category or classification of the partner.
+  category String
+
+  /// Owner’s display name.
+  owner String
+
+  /// Image URL for the owner.
+  ownerImage String
+
+  /// Optional URL to the owner's profile or site.
+  ownerLink String?
+
+  /// Short description.
+  description String
+
+  /// Longer, detailed description.
+  long_description String
+
+  /// Links associated with this partner.
+  links partnerLinks[]
+}
+
+/// Represents an application created by a user.
+model applications {
+  /// ID of the creator (user).
+  creatorid String @db.VarChar(255)
+
+  /// Relation to the user who created the app.
+  owner users @relation(fields: [creatorid], references: [userid])
+
+  /// Application name.
   name String @db.VarChar(255)
+
+  /// Logo URL for the app.
   logo String @default("/logo.png") @db.VarChar(255)
 
-  token  String  @unique @db.VarChar(255)
+  /// Unique token used for API access.
+  token String @unique @db.VarChar(255)
+
+  /// Whether the app is active.
   active Boolean @default(true)
 
+  /// List of permission scopes.
   permissions String[] @default(["global.*"])
 }
 
+/// Represents an attached plugin to a post.
 model plugins {
-  id     Int    @id @default(autoincrement())
+  /// Auto-incrementing ID.
+  id Int @id @default(autoincrement())
+
+  /// ID of the post this plugin is attached to.
   postid String @db.VarChar(255)
 
+  /// Relation to the post.
   post posts @relation(fields: [postid], references: [postid])
 
-  type     String  @db.VarChar(255)
-  href     String? @db.VarChar(255)
+  /// Type of the plugin.
+  type String @db.VarChar(255)
+
+  /// Optional URL for the plugin.
+  href String? @db.VarChar(255)
+
+  /// Optional JSON data for plugin configuration.
   jsonData Json?
 }
 
+/// Represents a comment on a post.
 model comments {
+  /// ID of the user who created the comment.
   creatorid String @db.VarChar(255)
-  user      users  @relation(fields: [creatorid], references: [userid])
 
-  caption String  @db.VarChar(255)
-  image   String? @db.VarChar(255)
+  /// Relation to the user.
+  user users @relation(fields: [creatorid], references: [userid])
 
-  post   posts  @relation(fields: [postid], references: [postid])
+  /// Comment content.
+  caption String @db.VarChar(255)
+
+  /// Optional image associated with the comment.
+  image String? @db.VarChar(255)
+
+  /// Relation to the post.
+  post posts @relation(fields: [postid], references: [postid])
+
+  /// Post ID.
   postid String @db.VarChar(255)
 
+  /// Unique identifier for the comment.
   commentid String @id @unique @db.VarChar(255)
 }
 
+/// Represents an upvote on a post.
 model upvotes {
-    id  String  @id @unique @default(uuid())
-    userid String @db.VarChar(255)
-    postid String @db.VarChar(255)
-    post posts @relation(fields: [postid], references: [postid])
-}
-
-model downvotes {
-    id  String  @id @unique @default(uuid())
-    userid String @db.VarChar(255)
-    postid String @db.VarChar(255)
-    post posts @relation(fields: [postid], references: [postid])
-}
-
-model following {
-    id  String  @id @unique @default(uuid())
-    
-    userid String @db.VarChar(255)
-    user users @relation("user", fields: [userid], references: [userid])
-
-    targetid String @db.VarChar(255)
-    target users @relation("target", fields: [targetid], references: [userid])
-}
-
-model posts {
+  id     String @id @unique @default(uuid())
   userid String @db.VarChar(255)
-  user   users  @relation(fields: [userid], references: [userid])
+  postid String @db.VarChar(255)
 
-  caption String    @db.VarChar(255)
-  image   String?   @db.VarChar(255)
+  /// Relation to the post.
+  post posts @relation(fields: [postid], references: [postid])
+}
+
+/// Represents a downvote on a post.
+model downvotes {
+  id     String @id @unique @default(uuid())
+  userid String @db.VarChar(255)
+  postid String @db.VarChar(255)
+
+  /// Relation to the post.
+  post posts @relation(fields: [postid], references: [postid])
+}
+
+/// Tracks following relationships between users.
+model following {
+  id String @id @unique @default(uuid())
+
+  /// Follower user ID.
+  userid String @db.VarChar(255)
+  user   users  @relation("user", fields: [userid], references: [userid])
+
+  /// Target (followed) user ID.
+  targetid String @db.VarChar(255)
+  target   users  @relation("target", fields: [targetid], references: [userid])
+}
+
+/// Represents a post made by a user.
+model posts {
+  /// Author user ID.
+  userid String @db.VarChar(255)
+
+  /// Relation to the user.
+  user users @relation(fields: [userid], references: [userid])
+
+  /// Post caption.
+  caption String @db.VarChar(255)
+
+  /// Optional image.
+  image String? @db.VarChar(255)
+
+  /// Associated plugins.
   plugins plugins[]
 
-  type   Int
+  /// Type of post (custom logic).
+  type Int
+
+  /// Unique post ID.
   postid String @id @unique @db.VarChar(255)
 
+  /// Reactions and responses.
   upvotes   upvotes[]
   downvotes downvotes[]
   comments  comments[]
 
+  /// Timestamp of creation.
   createdat DateTime @default(now())
 }
 
+/// Represents a social media link for a user.
+model social {
+  id String @id @unique @default(uuid())
+
+  /// Owning user.
+  userid String @db.VarChar(255)
+  user   users  @relation(fields: [userid], references: [userid])
+
+  /// Platform enum (Discord, Twitter, etc).
+  platform platform
+
+  /// Link URL.
+  link String @db.VarChar(255)
+}
+
+/// Represents a user on the platform.
 model users {
   name    String? @db.VarChar(255)
-  userid  String  @id @unique @db.VarChar(255)
-  discord_id String? @db.VarChar(255) @unique
   usertag String  @unique @db.VarChar(255)
 
-  bio       String   @default("None") @db.VarChar(255)
-  avatar    String   @default("/logo.png") @db.VarChar(255)
-  followers following[] @relation("target")
-  following following[] @relation("user")
-  badges    String[]
+  userid     String  @id @unique @db.VarChar(255)
+  discord_id String? @unique @db.VarChar(255)
+  bio        String  @default("None") @db.VarChar(255)
+  avatar     String  @default("/logo.png") @db.VarChar(255)
+  banner     String? @db.VarChar(255)
 
+  /// Social links.
+  socials social[]
+
+  /// Users this user follows.
+  followers following[] @relation("target")
+
+  /// Users following this user.
+  following following[] @relation("user")
+
+  /// User badges (staff, verified, etc).
+  badges badge[] @default([])
+
+  /// Interests and accessibility info.
+  specialInterests String[] @default([])
+  disabilities     String[] @default([])
+  pronouns         String?  @db.VarChar(255)
+
+  /// Optional birthdate.
+  birthDay DateTime?
+
+  /// Current state (active, banned, etc).
   state State @default(ACTIVE)
+
+  /// Admin/staff permissions.
   staff_perms String[] @default([])
 
+  /// Relations
   applications applications[]
   posts        posts[]
   comments     comments[]
 }
 
+/// Represents the user's status or account condition.
 enum State {
-    ACTIVE
-    BANNED
-    VOTE_BANNED
-    FOLLOW_BANNED
-    PRIVATE
+  ACTIVE
+  BANNED
+  VOTE_BANNED
+  FOLLOW_BANNED
+  PRIVATE
+}
+
+/// Enum of supported platforms for social links.
+enum platform {
+  DISCORD
+  TWITTER
+  INSTAGRAM
+  TIKTOK
+  YOUTUBE
+  GITHUB
+  WEBSITE
+}
+
+/// Enum of special badges given to users.
+enum badge {
+  STAFF
+  VERIFIED
 }
