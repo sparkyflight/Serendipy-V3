@@ -215,10 +215,10 @@ class Posts {
 			include: {
 				user: true,
 				comments: {
-                    include: {
-                        user: true
-                    }
-                },
+					include: {
+						user: true,
+					},
+				},
 				plugins: true,
 				upvotes: true,
 				downvotes: true,
@@ -233,7 +233,11 @@ class Posts {
 		const posts = await prisma.posts.findMany({
 			include: {
 				user: true,
-				comments: true,
+				comments: {
+					include: {
+						user: true,
+					},
+				},
 				plugins: true,
 				upvotes: true,
 				downvotes: true,
@@ -272,8 +276,8 @@ class Posts {
 				user: true,
 				comments: {
 					include: {
-						user: true
-					}
+						user: true,
+					},
 				},
 				plugins: true,
 				upvotes: true,
