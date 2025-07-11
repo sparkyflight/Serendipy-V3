@@ -214,7 +214,11 @@ class Posts {
 			where,
 			include: {
 				user: true,
-				comments: true,
+				comments: {
+                    include: {
+                        user: true
+                    }
+                },
 				plugins: true,
 				upvotes: true,
 				downvotes: true,
@@ -266,7 +270,11 @@ class Posts {
 			where: { userid },
 			include: {
 				user: true,
-				comments: true,
+				comments: {
+					include: {
+						user: true
+					}
+				},
 				plugins: true,
 				upvotes: true,
 				downvotes: true,
