@@ -347,6 +347,30 @@ class Posts {
 		}
 	}
 
+	// Delete vote on a post
+	static async unvote(
+		postid: string,
+		userid: string
+	): Promise<boolean | Error> {
+		try {
+			const user = await prisma.users.findUnique({ where: { userid } });
+			if (!user || ["BANNED", "VOTE_BANNED"].includes(user.state)) {
+				throw new Error(
+					"User cannot vote for posts. Reason: Punishment"
+				);
+			}
+
+			await Promise.all([
+				prisma.upvotes.deleteMany({ where: { postid, userid } }),
+				prisma.downvotes.deleteMany({ where: { postid, userid } }),
+			]);
+
+			return true;
+		} catch (err) {
+			return err as Error;
+		}
+	}
+
 	// Comment on a post
 	static async comment(
 		postid: string,
