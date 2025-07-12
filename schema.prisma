@@ -61,28 +61,73 @@ model partners {
   links partnerLinks[]
 }
 
+/// Represents a record of an application a user has authorized.
+model authorized_apps {
+  /// Unique identifier for this authorization record.
+  id String @id @unique @default(uuid())
+
+  /// The ID of the user who authorized the application.
+  user_id String
+
+  /// Relation to the user who authorized the application.
+  authorized_user users @relation(fields: [user_id], references: [userid])
+
+  /// The ID of the authorized application (references `client_id`).
+  application_id String
+
+  /// Relation to the application that was authorized.
+  application applications @relation(fields: [application_id], references: [client_id])
+
+  /// The list of OAuth scopes granted to the application.
+  scopes String[]
+
+  /// The unique access token issued to the application.
+  token String @unique
+
+  /// When the token will expire, if applicable.
+  expires_at DateTime?
+
+  /// When the token was explicitly revoked, if applicable.
+  revoked_at DateTime?
+
+  /// Index for faster queries by application ID.
+  @@index([application_id])
+}
+
 /// Represents an application created by a user.
 model applications {
-  /// ID of the creator (user).
+  /// The user ID of the application creator.
   creatorid String @db.VarChar(255)
 
-  /// Relation to the user who created the app.
+  /// Reference to the user who owns this application.
   owner users @relation(fields: [creatorid], references: [userid])
 
-  /// Application name.
+  /// The name of the application.
   name String @db.VarChar(255)
 
-  /// Logo URL for the app.
+  /// The URL to the application's logo. Defaults to "/logo.png".
   logo String @default("/logo.png") @db.VarChar(255)
 
-  /// Unique token used for API access.
+  /// The public client identifier used for OAuth authentication.
+  client_id String? @unique @db.VarChar(255) 
+
+  /// The private client secret used for OAuth authentication.
+  client_secret String? @unique @db.VarChar(255)
+
+  /// The default scopes granted to the application for OAuth access.
+  scopes String[]
+
+  /// A unique API token used for direct authentication (non-OAuth).
   token String @unique @db.VarChar(255)
 
-  /// Whether the app is active.
+  /// Whether the application is currently active or suspended.
   active Boolean @default(true)
 
-  /// List of permission scopes.
+  /// A list of permissions this application has, defaults to ["global.*"].
   permissions String[] @default(["global.*"])
+
+  /// Back-reference to all authorization records for this application.
+  authorized_apps authorized_apps[]
 }
 
 /// Represents an attached plugin to a post.
@@ -247,9 +292,10 @@ model users {
   staff_perms String[] @default([])
 
   /// Relations
-  applications applications[]
-  posts        posts[]
-  comments     comments[]
+  applications    applications[]
+  posts           posts[]
+  comments        comments[]
+  authorized_apps authorized_apps[]
 }
 
 /// Represents the user's status or account condition.
