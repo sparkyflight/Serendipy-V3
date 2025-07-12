@@ -1,4 +1,11 @@
-import { applications, partners, Prisma, PrismaClient } from "@prisma/client";
+import {
+	applications,
+	partners,
+	authorized_apps,
+	Prisma,
+	PrismaClient,
+	users,
+} from "@prisma/client";
 import FlakeId from "flake-idgen";
 import bigunitFormat from "biguint-format";
 import crypto from "crypto";
@@ -504,7 +511,7 @@ class Applications {
 				where,
 			});
 
-			Promise.all([
+			await Promise.all([
 				await prisma.applications.delete({
 					where: {
 						token: app.token,
@@ -516,6 +523,91 @@ class Applications {
 					},
 				}),
 			]);
+			return true;
+		} catch (err) {
+			return err as Error;
+		}
+	}
+
+	static async authorizeApp(
+		userId: string,
+		applicationId: string,
+		scopes: string[],
+		expires_at: Date | null
+	): Promise<string | Error> {
+		try {
+			const token = crypto.randomBytes(32).toString("hex");
+
+			await prisma.authorized_apps.create({
+				data: {
+					user_id: userId,
+					application_id: applicationId,
+					token,
+					scopes,
+					expires_at,
+				},
+			});
+
+			return token;
+		} catch (err) {
+			return err as Error;
+		}
+	}
+
+	static async validateToken(token: string): Promise<
+		| (authorized_apps & {
+				application: applications;
+				authorized_user: users;
+		  })
+		| null
+	> {
+		try {
+			let record = await prisma.authorized_apps.findUnique({
+				where: { token },
+				include: {
+					application: true,
+					authorized_user: true,
+				},
+			});
+
+			if (
+				!record ||
+				record.revoked_at ||
+				(record.expires_at && record.expires_at < new Date())
+			) {
+				return null;
+			}
+
+			record.application["token"] = null;
+			record.application["client_secret"] = null;
+
+			return record;
+		} catch {
+			return null;
+		}
+	}
+
+	static async getAuthorizedApps(
+		userId: string
+	): Promise<authorized_apps[] | Error> {
+		try {
+			return await prisma.authorized_apps.findMany({
+				where: { user_id: userId },
+				include: { application: true },
+			});
+		} catch (err) {
+			return err as Error;
+		}
+	}
+
+	static async revokeToken(token: string): Promise<boolean | Error> {
+		try {
+			await prisma.authorized_apps.update({
+				where: { token },
+				data: {
+					revoked_at: new Date(),
+				},
+			});
 			return true;
 		} catch (err) {
 			return err as Error;
