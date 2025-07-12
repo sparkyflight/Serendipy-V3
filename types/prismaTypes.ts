@@ -71,7 +71,7 @@ export interface applications {
     token: string,
     active: boolean,
     permissions: string[],
-    authorized_apps: authorized_apps[],
+    authorized_users: authorized_apps[],
 }
 
 export interface plugins {

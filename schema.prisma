@@ -127,7 +127,7 @@ model applications {
   permissions String[] @default(["global.*"])
 
   /// Back-reference to all authorization records for this application.
-  authorized_apps authorized_apps[]
+  authorized_users authorized_apps[]
 }
 
 /// Represents an attached plugin to a post.

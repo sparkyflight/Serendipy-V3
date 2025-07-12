@@ -1,4 +1,6 @@
 import { applications, partners, Prisma, PrismaClient } from "@prisma/client";
+import FlakeId from "flake-idgen";
+import bigunitFormat from "biguint-format";
 import crypto from "crypto";
 
 const prisma = new PrismaClient();
@@ -422,12 +424,19 @@ class Applications {
 				)
 				.digest("hex");
 
+			const flake = new FlakeId({ epoch: 1609459200000 });
+			const clientId = bigunitFormat(flake.next(), "dec");
+			const clientSecret = crypto.randomBytes(32).toString("hex");
+
 			await prisma.applications.create({
 				data: {
 					creatorid: creatorId,
 					name,
 					logo,
 					token,
+					client_id: clientId,
+					client_secret: clientSecret,
+					scopes: [],
 					active: true,
 					permissions: ["global.*"],
 				},
@@ -463,7 +472,7 @@ class Applications {
 		try {
 			const app = await prisma.applications.findUnique({
 				where: { token },
-				include: { owner: true },
+				include: { owner: true, authorized_users: false },
 			});
 
 			return app ?? null;
@@ -479,7 +488,7 @@ class Applications {
 		try {
 			return await prisma.applications.findMany({
 				where: { creatorid },
-				include: { owner: true },
+				include: { owner: true, authorized_users: false },
 			});
 		} catch (err) {
 			return err as Error;
@@ -491,9 +500,22 @@ class Applications {
 		where: Prisma.applicationsWhereUniqueInput
 	): Promise<boolean | Error> {
 		try {
-			await prisma.applications.delete({
+			const app = await prisma.applications.findFirst({
 				where,
 			});
+
+			Promise.all([
+				await prisma.applications.delete({
+					where: {
+						token: app.token,
+					},
+				}),
+				await prisma.authorized_apps.deleteMany({
+					where: {
+						application_id: app.client_id,
+					},
+				}),
+			]);
 			return true;
 		} catch (err) {
 			return err as Error;
