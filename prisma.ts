@@ -36,7 +36,14 @@ class Users {
 			const user = await prisma.users.findUnique({
 				where,
 				include: {
-					posts: true,
+					posts: {
+                        include: {
+                            upvotes: true,
+                            downvotes: true,
+                            comments: true,
+                            plugins: true,
+                        }
+                    },
 					applications: false,
 					followers: {
 						include: {
