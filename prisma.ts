@@ -42,6 +42,7 @@ class Users {
                             downvotes: true,
                             comments: true,
                             plugins: true,
+                            user: true
                         }
                     },
 					applications: false,
