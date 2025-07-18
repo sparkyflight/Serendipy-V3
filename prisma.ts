@@ -37,14 +37,14 @@ class Users {
 				where,
 				include: {
 					posts: {
-                        include: {
-                            upvotes: true,
-                            downvotes: true,
-                            comments: true,
-                            plugins: true,
-                            user: true
-                        }
-                    },
+						include: {
+							upvotes: true,
+							downvotes: true,
+							comments: true,
+							plugins: true,
+							user: true,
+						},
+					},
 					applications: false,
 					followers: {
 						include: {
